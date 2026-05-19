@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Delivery Zone Check</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
+</head>
+<body>
+<div id="map" style="height:100vh"></div>
+
+<script>
+// ✅ CLEAN ZONE SYSTEM
+const ZONES = {
+  "cebu-main": null
+};
+
+// CONFIG
+const CONFIG = {
+  mapCenter: [10.3137, 123.9078],
+  defaultZoom: 15
+};
+
+// MAP INIT
+const map = L.map('map').setView(CONFIG.mapCenter, CONFIG.defaultZoom);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// READ URL
+const hash = window.location.hash.replace('#','');
+let savedZone = null;
+
+if (hash.startsWith('zone=')) {
+  const key = hash.slice(5);
+  if (ZONES[key]) savedZone = ZONES[key];
+}
+
+let drawn = [];
+let polygon = null;
+
+// DRAW MODE
+if (!savedZone) {
+  map.on('click', (e)=>{
+    drawn.push([e.latlng.lat, e.latlng.lng]);
+    L.circleMarker(e.latlng).addTo(map);
+  });
+
+  window.finishZone = ()=>{
+    if (drawn.length < 3) return alert("Need at least 3 points");
+
+    ZONES["cebu-main"] = drawn;
+
+    polygon = L.polygon(drawn).addTo(map);
+    map.fitBounds(polygon.getBounds());
+
+    const url = `${location.origin}${location.pathname}#zone=cebu-main`;
+    alert("CLEAN LINK:\n" + url);
+  }
+
+  const btn = document.createElement("button");
+  btn.innerText = "Finish Zone";
+  btn.style.position = "absolute";
+  btn.style.top = "10px";
+  btn.style.left = "10px";
+  btn.onclick = finishZone;
+  document.body.appendChild(btn);
+}
+
+// CUSTOMER MODE
+if (savedZone) {
+  polygon = L.polygon(savedZone).addTo(map);
+  map.fitBounds(polygon.getBounds());
+
+  map.on('click', (e)=>{
+    const pt = turf.point([e.latlng.lng, e.latlng.lat]);
+    const ring = [...savedZone.map(p=>[p[1],p[0]]), [savedZone[0][1],savedZone[0][0]]];
+    const poly = turf.polygon([ring]);
+    const inside = turf.booleanPointInPolygon(pt, poly);
+
+    alert(inside ? "Inside delivery zone" : "Outside delivery zone");
+  });
+}
+</script>
+</body>
+</html>
